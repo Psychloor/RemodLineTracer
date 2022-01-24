@@ -43,12 +43,15 @@
         // ReSharper disable once InconsistentNaming
         private ConfigValue<Color> OthersColor;
 
+        private ReMenuToggle tracerToggle;
+
         public LineTracerComponent()
         {
             lineTracerEnabled = new ConfigValue<bool>(
                 nameof(lineTracerEnabled),
                 false,
                 "Enable Line Tracer (Right Trigger)");
+            lineTracerEnabled.OnValueChanged += () => tracerToggle?.Toggle(lineTracerEnabled, false, true);
 
             FriendsColor = new ConfigValue<Color>(nameof(FriendsColor), Color.yellow);
             OthersColor = new ConfigValue<Color>(nameof(OthersColor), Color.white);
@@ -112,7 +115,7 @@
         {
             ReMenuCategory espMenu = uiManager.MainMenu.GetCategoryPage("Visuals").GetCategory("ESP/Highlights");
 
-            espMenu.AddToggle(
+            tracerToggle = espMenu.AddToggle(
                 "[VR] Line Tracer",
                 "Hold right trigger to draw lines to each players in world",
                 lineTracerEnabled);
