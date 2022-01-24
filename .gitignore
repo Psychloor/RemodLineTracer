@@ -1,8 +1,5 @@
 # Created by .ignore support plugin (hsz.mobi)
 
-Libs/*.db
-/PsyMod/Libs/*.db
-
 # IntelliJ project files
 .idea
 *.iml
