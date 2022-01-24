@@ -29,7 +29,7 @@
 
         private static Material lineMaterial;
 
-        private readonly List<(Player player, Transform destination)> cachedPlayers = new();
+        private readonly List<Player> cachedPlayers = new();
 
         // ReSharper disable once InconsistentNaming
         private ConfigValue<Color> FriendsColor;
@@ -53,20 +53,7 @@
             FriendsColor = new ConfigValue<Color>(nameof(FriendsColor), Color.yellow);
             OthersColor = new ConfigValue<Color>(nameof(OthersColor), Color.white);
         }
-
-        public override void OnAvatarIsReady(VRCPlayer player)
-        {
-            if (player.GetPlayer().GetAPIUser().IsSelf) originTransform = GetOriginTransform();
-            else
-                for (var i = 0; i < cachedPlayers.Count; i++)
-                {
-                    (Player player, Transform destination) cachedPlayer = cachedPlayers[i];
-                    if (!cachedPlayer.player == player._player) continue;
-                    cachedPlayer.destination = GrabDestination(player);
-                    cachedPlayers[i] = cachedPlayer;
-                    return;
-                }
-        }
+        
         public override void OnLeftRoom()
         {
             cachedPlayers.Clear();
@@ -79,14 +66,13 @@
 
         public override void OnPlayerJoined(Player player)
         {
-            if (player.GetAPIUser().IsSelf) GetOriginTransform();
-            else
-                cachedPlayers.Add((player, GrabDestination(player._vrcplayer)));
+            if (player.GetAPIUser().IsSelf) return;
+            cachedPlayers.Add(player);
         }
 
         public override void OnPlayerLeft(Player player)
         {
-            cachedPlayers.RemoveAll(tuple => tuple.player == player);
+            cachedPlayers.Remove(player);
         }
 
         public override void OnRenderObject()
@@ -102,19 +88,20 @@
             if (!materialSetup) SetupMaterial();
 
             // local player
-            if (!originTransform) return;
+            if (!originTransform) originTransform = GetOriginTransform();
+            if (originTransform == null) return;
 
             // Initialize GL
             GL.Begin(1); // Lines
             lineMaterial.SetPass(0);
 
             // goes way faster to re-use the cached players
-            foreach ((Player player, Transform destination) in cachedPlayers)
+            foreach (Player player in cachedPlayers)
             {
                 if (!player) continue;
                 GL.Color(player.GetAPIUser().isFriend ? FriendsColor.Value : OthersColor.Value);
                 GL.Vertex(originTransform.position);
-                GL.Vertex(destination.position);
+                GL.Vertex(player.transform.position);
             }
 
             // End GL
@@ -145,15 +132,6 @@
                    ?? localAnimator.GetBoneTransform(HumanBodyBones.RightIndexIntermediate)
                    ?? localAnimator.GetBoneTransform(HumanBodyBones.RightIndexProximal)
                    ?? localAnimator.GetBoneTransform(HumanBodyBones.RightHand);
-        }
-
-        private static Transform GrabDestination(VRCPlayer player)
-        {
-            Animator animator = player.GetAvatarObject()?.GetComponent<Animator>();
-            if (animator == null
-                || !animator.isHuman) return player.transform;
-
-            return animator.GetBoneTransform(HumanBodyBones.Hips) ?? player.transform;
         }
 
         private void SetupMaterial()
