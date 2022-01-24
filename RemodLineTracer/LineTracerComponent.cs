@@ -56,15 +56,20 @@
 
         public override void OnAvatarIsReady(VRCPlayer player)
         {
-            if (player.GetPlayer().GetAPIUser().IsSelf) return;
-            for (var i = 0; i < cachedPlayers.Count; i++)
-            {
-                (Player player, Transform destination) cachedPlayer = cachedPlayers[i];
-                if (!cachedPlayer.player == player._player) continue;
-                cachedPlayer.destination = GrabDestination(player);
-                cachedPlayers[i] = cachedPlayer;
-                return;
-            }
+            if (player.GetPlayer().GetAPIUser().IsSelf) originTransform = GetOriginTransform();
+            else
+                for (var i = 0; i < cachedPlayers.Count; i++)
+                {
+                    (Player player, Transform destination) cachedPlayer = cachedPlayers[i];
+                    if (!cachedPlayer.player == player._player) continue;
+                    cachedPlayer.destination = GrabDestination(player);
+                    cachedPlayers[i] = cachedPlayer;
+                    return;
+                }
+        }
+        public override void OnLeftRoom()
+        {
+            cachedPlayers.Clear();
         }
 
         public override void OnEnterWorld(ApiWorld world, ApiWorldInstance instance)
@@ -74,8 +79,9 @@
 
         public override void OnPlayerJoined(Player player)
         {
-            if (player.GetAPIUser().IsSelf) return;
-            cachedPlayers.Add((player, player.transform));
+            if (player.GetAPIUser().IsSelf) GetOriginTransform();
+            else
+                cachedPlayers.Add((player, GrabDestination(player._vrcplayer)));
         }
 
         public override void OnPlayerLeft(Player player)
@@ -96,8 +102,7 @@
             if (!materialSetup) SetupMaterial();
 
             // local player
-            if (!originTransform) originTransform = GetOriginTransform();
-            if (originTransform == null) return;
+            if (!originTransform) return;
 
             // Initialize GL
             GL.Begin(1); // Lines
