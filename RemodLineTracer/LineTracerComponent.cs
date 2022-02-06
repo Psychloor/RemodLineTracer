@@ -31,13 +31,15 @@
         private readonly List<PlayerInfo> cachedPlayers = new();
 
         // ReSharper disable once InconsistentNaming
-        private ConfigValue<Color> FriendsColor;
+        private readonly ConfigValue<Color> FriendsColor;
         // ReSharper disable once InconsistentNaming
-        private ConfigValue<Color> ReModColor;
+        private readonly ConfigValue<Color> ReModColor;
         // ReSharper disable once InconsistentNaming
-        private ConfigValue<Color> OthersColor;
+        private readonly ConfigValue<Color> OthersColor;
 
-        private ConfigValue<bool> lineTracerEnabled;
+        private Color32 friendsColor, remodColor, othersColor;
+
+        private readonly ConfigValue<bool> lineTracerEnabled;
 
         private bool materialSetup;
 
@@ -59,13 +61,21 @@
             ReModColor = new ConfigValue<Color>(nameof(ReModColor), Color.magenta);
             OthersColor = new ConfigValue<Color>(nameof(OthersColor), Color.white);
 
+            FriendsColor.OnValueChanged += () => friendsColor = FriendsColor.Value;
+            ReModColor.OnValueChanged += () => remodColor = ReModColor.Value;
+            OthersColor.OnValueChanged += () => othersColor = OthersColor.Value;
+
+            friendsColor = FriendsColor.Value;
+            remodColor = ReModColor.Value;
+            othersColor = OthersColor.Value;
+
             getTrustNames = new List<GetTrustNameDelegate>();
             var getTrustNameMethods = typeof(VRCPlayer).GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly).Where(m => m.Name.StartsWith("Method_Public_Static_String_APIUser_", StringComparison.Ordinal) && m.GetParameters().Length == 1);
             foreach (var method in getTrustNameMethods)
             {
                 getTrustNames.Add((GetTrustNameDelegate)Delegate.CreateDelegate(typeof(GetTrustNameDelegate), method));
             }
-        
+
         }
 
         public override void OnLeftRoom()
@@ -137,9 +147,9 @@
                 if (!info.player) continue;
 
                 if (info.isReModUser)
-                    GL.Color(ReModColor.Value);
+                    GL.Color(remodColor);
                 else
-                    GL.Color(info.isFriend ? FriendsColor.Value : OthersColor.Value);
+                    GL.Color(info.isFriend ? friendsColor : othersColor);
 
                 GL.Vertex(originTransform.position);
                 GL.Vertex(info.transform.position);
