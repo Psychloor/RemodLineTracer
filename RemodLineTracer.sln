@@ -1,6 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemodLineTracer", "RemodLineTracer\RemodLineTracer.csproj", "{276651F6-615E-4922-9C35-C0D3E8223151}"
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31912.275
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemodLineTracer", "RemodLineTracer\RemodLineTracer.csproj", "{B6129F09-5CAA-471A-9830-DC73344E74F5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -8,9 +11,15 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{276651F6-615E-4922-9C35-C0D3E8223151}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{276651F6-615E-4922-9C35-C0D3E8223151}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{276651F6-615E-4922-9C35-C0D3E8223151}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{276651F6-615E-4922-9C35-C0D3E8223151}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6129F09-5CAA-471A-9830-DC73344E74F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6129F09-5CAA-471A-9830-DC73344E74F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6129F09-5CAA-471A-9830-DC73344E74F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6129F09-5CAA-471A-9830-DC73344E74F5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B8638B0B-9EE3-4F17-A658-7B6E0DBC405E}
 	EndGlobalSection
 EndGlobal

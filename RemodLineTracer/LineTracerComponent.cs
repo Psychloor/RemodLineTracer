@@ -1,16 +1,15 @@
 ﻿namespace ReModLineTracer
 {
-
-    using System.Collections.Generic;
-
     using ReMod.Core;
     using ReMod.Core.Managers;
     using ReMod.Core.UI.QuickMenu;
     using ReMod.Core.VRChat;
-
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Reflection;
     using UnityEngine;
     using UnityEngine.XR;
-
     using VRC;
     using VRC.Core;
 
@@ -29,21 +28,24 @@
 
         private static Material lineMaterial;
 
-        private readonly List<Player> cachedPlayers = new();
+        private readonly List<PlayerInfo> cachedPlayers = new();
 
         // ReSharper disable once InconsistentNaming
         private ConfigValue<Color> FriendsColor;
+        // ReSharper disable once InconsistentNaming
+        private ConfigValue<Color> ReModColor;
+        // ReSharper disable once InconsistentNaming
+        private ConfigValue<Color> OthersColor;
 
         private ConfigValue<bool> lineTracerEnabled;
 
         private bool materialSetup;
 
         private Transform originTransform;
-
-        // ReSharper disable once InconsistentNaming
-        private ConfigValue<Color> OthersColor;
-
         private ReMenuToggle tracerToggle;
+
+        private delegate string GetTrustNameDelegate(APIUser user);
+        private static List<GetTrustNameDelegate> getTrustNames;
 
         public LineTracerComponent()
         {
@@ -54,9 +56,18 @@
             lineTracerEnabled.OnValueChanged += () => tracerToggle?.Toggle(lineTracerEnabled, false, true);
 
             FriendsColor = new ConfigValue<Color>(nameof(FriendsColor), Color.yellow);
+            ReModColor = new ConfigValue<Color>(nameof(ReModColor), Color.magenta);
             OthersColor = new ConfigValue<Color>(nameof(OthersColor), Color.white);
-        }
+
+            getTrustNames = new List<GetTrustNameDelegate>();
+            var getTrustNameMethods = typeof(VRCPlayer).GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly).Where(m => m.Name.StartsWith("Method_Public_Static_String_APIUser_", StringComparison.Ordinal) && m.GetParameters().Length == 1);
+            foreach (var method in getTrustNameMethods)
+            {
+                getTrustNames.Add((GetTrustNameDelegate)Delegate.CreateDelegate(typeof(GetTrustNameDelegate), method));
+            }
         
+        }
+
         public override void OnLeftRoom()
         {
             cachedPlayers.Clear();
@@ -70,12 +81,34 @@
         public override void OnPlayerJoined(Player player)
         {
             if (player.GetAPIUser().IsSelf) return;
-            cachedPlayers.Add(player);
+
+            var playerInfo = new PlayerInfo
+            {
+                player = player,
+                transform = player.transform,
+                isReModUser = IsReModUser(player.GetAPIUser()),
+                isFriend = player.GetAPIUser().isFriend
+            };
+
+            cachedPlayers.Add(playerInfo);
+        }
+
+        private static bool IsReModUser(APIUser apiUser)
+        {
+            foreach (var method in getTrustNames)
+            {
+                if (method?.Invoke(apiUser).IndexOf("remod", StringComparison.OrdinalIgnoreCase) != -1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public override void OnPlayerLeft(Player player)
         {
-            cachedPlayers.Remove(player);
+            cachedPlayers.RemoveAll(info => info.player == player);
         }
 
         public override void OnRenderObject()
@@ -83,10 +116,10 @@
             if (!lineTracerEnabled
                 || !XRDevice.isPresent) return;
 
+            if (Input.GetAxis(RightTrigger) < 0.4f) return;
+
             // In World/Room
             if (!RoomManager.field_Private_Static_Boolean_0) return;
-
-            if (Input.GetAxis(RightTrigger) < 0.4f) return;
 
             if (!materialSetup) SetupMaterial();
 
@@ -99,12 +132,17 @@
             lineMaterial.SetPass(0);
 
             // goes way faster to re-use the cached players
-            foreach (Player player in cachedPlayers)
+            foreach (PlayerInfo info in cachedPlayers)
             {
-                if (!player) continue;
-                GL.Color(player.GetAPIUser().isFriend ? FriendsColor.Value : OthersColor.Value);
+                if (!info.player) continue;
+
+                if (info.isReModUser)
+                    GL.Color(ReModColor.Value);
+                else
+                    GL.Color(info.isFriend ? FriendsColor.Value : OthersColor.Value);
+
                 GL.Vertex(originTransform.position);
-                GL.Vertex(player.transform.position);
+                GL.Vertex(info.transform.position);
             }
 
             // End GL
@@ -147,6 +185,15 @@
             lineMaterial.hideFlags = HideFlags.HideAndDontSave;
 
             materialSetup = true;
+        }
+
+        private class PlayerInfo
+        {
+            public bool isReModUser, isFriend;
+
+            public Player player;
+
+            public Transform transform;
         }
 
     }
