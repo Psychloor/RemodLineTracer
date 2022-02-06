@@ -144,10 +144,12 @@
             {
                 if (!info.player) continue;
 
-                if (info.isReModUser)
+                if(info.isFriend)
+                    GL.Color(friendsColor);
+                else if (info.isReModUser)
                     GL.Color(remodColor);
                 else
-                    GL.Color(info.isFriend ? friendsColor : othersColor);
+                    GL.Color(othersColor);
 
                 GL.Vertex(originTransform.position);
                 GL.Vertex(info.transform.position);
