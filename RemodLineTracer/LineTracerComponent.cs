@@ -31,11 +31,7 @@
         private readonly List<PlayerInfo> cachedPlayers = new();
 
         // ReSharper disable once InconsistentNaming
-        private readonly ConfigValue<Color> FriendsColor;
-        // ReSharper disable once InconsistentNaming
-        private readonly ConfigValue<Color> ReModColor;
-        // ReSharper disable once InconsistentNaming
-        private readonly ConfigValue<Color> OthersColor;
+        private readonly ConfigValue<Color> FriendsColor, ReModColor, OthersColor;
 
         private Color32 friendsColor, remodColor, othersColor;
 
@@ -123,10 +119,12 @@
 
         public override void OnRenderObject()
         {
+#if !DEBUG
             if (!lineTracerEnabled
                 || !XRDevice.isPresent) return;
 
             if (Input.GetAxis(RightTrigger) < 0.4f) return;
+#endif
 
             // In World/Room
             if (!RoomManager.field_Private_Static_Boolean_0) return;
