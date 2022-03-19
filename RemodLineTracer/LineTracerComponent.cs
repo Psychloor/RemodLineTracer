@@ -13,6 +13,7 @@
     using VRC;
     using VRC.Core;
 
+    // ReSharper disable once UnusedType.Global
     public sealed class LineTracerComponent : ModComponent
     {
 
@@ -35,12 +36,14 @@
 
         private Color32 friendsColor, remodColor, othersColor;
 
-        private readonly ConfigValue<bool> lineTracerEnabled;
+        private readonly ConfigValue<bool> lineTracerEnabled, lineTracerFriendPrioritize, lineTracerHotkeyEnabled;
 
         private bool materialSetup;
 
         private Transform originTransform;
-        private ReMenuToggle tracerToggle;
+        private ReMenuToggle tracerToggle, prioritizeToggle, hotkeyToggle;
+
+        private static Transform cameraTransform;
 
         private delegate string GetTrustNameDelegate(APIUser user);
         private static List<GetTrustNameDelegate> getTrustNames;
@@ -52,6 +55,15 @@
                 false,
                 "Enable Line Tracer (Right Trigger)");
             lineTracerEnabled.OnValueChanged += () => tracerToggle?.Toggle(lineTracerEnabled, false, true);
+
+            lineTracerFriendPrioritize = new ConfigValue<bool>(
+                nameof(lineTracerFriendPrioritize),
+                false,
+                "LineTracer Prioritize Friends");
+            lineTracerHotkeyEnabled = new ConfigValue<bool>(
+                nameof(lineTracerHotkeyEnabled),
+                true,
+                "LineTracer Hotkey Enabled");
 
             FriendsColor = new ConfigValue<Color>(nameof(FriendsColor), Color.yellow);
             ReModColor = new ConfigValue<Color>(nameof(ReModColor), Color.magenta);
@@ -66,7 +78,12 @@
             othersColor = OthersColor.Value;
 
             getTrustNames = new List<GetTrustNameDelegate>();
-            var getTrustNameMethods = typeof(VRCPlayer).GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly).Where(m => m.Name.StartsWith("Method_Public_Static_String_APIUser_", StringComparison.Ordinal) && m.GetParameters().Length == 1);
+            var getTrustNameMethods = typeof(VRCPlayer)
+                                      .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                                      .Where(
+                                          m => m.Name.StartsWith(
+                                                   "Method_Public_Static_String_APIUser_",
+                                                   StringComparison.Ordinal) && m.GetParameters().Length == 1);
             foreach (var method in getTrustNameMethods)
             {
                 getTrustNames.Add((GetTrustNameDelegate)Delegate.CreateDelegate(typeof(GetTrustNameDelegate), method));
@@ -82,6 +99,16 @@
         public override void OnEnterWorld(ApiWorld world, ApiWorldInstance instance)
         {
             cachedPlayers.Clear();
+        }
+
+        public override void OnUpdate()
+        {
+            if (Input.GetKeyDown(KeyCode.L)
+                && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)))
+            {
+                if (!lineTracerHotkeyEnabled) return;
+                tracerToggle.Toggle(!lineTracerEnabled, updateVisually: true);
+            }
         }
 
         public override void OnPlayerJoined(Player player)
@@ -119,12 +146,9 @@
 
         public override void OnRenderObject()
         {
-#if !DEBUG
-            if (!lineTracerEnabled
-                || !XRDevice.isPresent) return;
-
-            if (Input.GetAxis(RightTrigger) < 0.4f) return;
-#endif
+            if (!lineTracerEnabled) return;
+            var isInVR = XRDevice.isPresent;
+            if (isInVR && Input.GetAxis(RightTrigger) < 0.4f) return;
 
             // In World/Room
             if (!RoomManager.field_Private_Static_Boolean_0) return;
@@ -134,8 +158,11 @@
             // local player
             if (!originTransform) originTransform = GetOriginTransform();
             if (originTransform == null) return;
+            
+            var relativeOrigin = originTransform.position + originTransform.forward;
 
             // Initialize GL
+            GL.PushMatrix();
             GL.Begin(1); // Lines
             lineMaterial.SetPass(0);
 
@@ -143,20 +170,40 @@
             foreach (PlayerInfo info in cachedPlayers)
             {
                 if (!info.player) continue;
-
-                if(info.isFriend)
+                
+                // Color
+                if (info.isReModUser)
+                {
+                    if(info.isFriend && lineTracerFriendPrioritize)
+                        GL.Color(friendsColor);
+                    else 
+                        GL.Color(remodColor);
+                }
+                else if(info.isFriend)
                     GL.Color(friendsColor);
-                else if (info.isReModUser)
-                    GL.Color(remodColor);
                 else
                     GL.Color(othersColor);
 
-                GL.Vertex(originTransform.position);
+                // Origin
+                if(isInVR)
+                    GL.Vertex(originTransform.position);
+                else
+                {
+                    // Skip if the other player is behind the origin position
+                    var relativePos = info.transform.position - relativeOrigin;
+                    if (Vector3.Dot(originTransform.forward, relativePos) <= 0f) continue;
+
+                    GL.Vertex(relativeOrigin);
+                }
+
+                // End Position
                 GL.Vertex(info.transform.position);
             }
 
             // End GL
             GL.End();
+            GL.PopMatrix();
+
         }
 
         public override void OnUiManagerInit(UiManager uiManager)
@@ -164,15 +211,27 @@
             ReMenuCategory espMenu = uiManager.MainMenu.GetCategoryPage("Visuals").GetCategory("ESP/Highlights");
 
             tracerToggle = espMenu.AddToggle(
-                "[VR] Line Tracer",
-                "Hold right trigger to draw lines to each players in world",
+                "Line Tracer",
+                "[VR] Hold right trigger to draw lines to each players in world",
                 lineTracerEnabled);
+
+            prioritizeToggle = espMenu.AddToggle(
+                "Prioritize Friends",
+                "Prioritizes Friends over Remod User color",
+                lineTracerFriendPrioritize);
+
+            hotkeyToggle = uiManager.MainMenu.GetMenuPage("Hotkeys").AddToggle(
+                "Line Tracer",
+                "Enable/Disable Line Tracer Hotkey (Ctrl + L)",
+                lineTracerHotkeyEnabled);
         }
 
         private static Transform GetOriginTransform()
         {
             VRCPlayer localPlayer = VRCPlayer.field_Internal_Static_VRCPlayer_0;
             if (!localPlayer) return null;
+
+            if (!XRDevice.isPresent) return cameraTransform ??= VRCVrCamera.field_Private_Static_VRCVrCamera_0.field_Public_Camera_0.transform;
 
             Animator localAnimator = localPlayer.GetAvatarObject()?.GetComponent<Animator>();
             if (localAnimator == null
